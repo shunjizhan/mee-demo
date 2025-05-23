@@ -21,9 +21,10 @@ import assert from 'assert';
 import { AUSDC_ADDR, BASE_RPC_URL, KEY, MEE_NOR_URL, USDC_ADDR } from './consts';
 import { getTokenBalance, promptForAmount, startStep } from './utils';
 
+let ok, fail;
 const main = async () => {
   /* ----------------------------- setup ----------------------------- */
-  let { ok } = startStep('setting up');
+  ({ ok, fail } = startStep('setting up'));
 
   const eoa = privateKeyToAccount(`0x${KEY}`);
   const oNexus = await toMultichainNexusAccount({
@@ -74,7 +75,7 @@ const main = async () => {
   const usdcTransferAmount = parseUnits(amountInput.toString(), 6);
 
   /* ----------------------------- build instructions ----------------------------- */
-  ({ ok } = startStep('building instructions'));
+  ({ ok, fail } = startStep('building instructions'));
 
   // trigger tx is what the user will actually sign, which will kick off the entire orchestration sequence.
   const transferToNexusTrigger = {
@@ -125,7 +126,7 @@ const main = async () => {
   ok();
 
   /* ----------------------------- fetch quote ----------------------------- */
-  ({ ok } = startStep('fetching quote'));
+  ({ ok, fail } = startStep('fetching quote'));
   const quote = await meeClient.getFusionQuote({
     trigger: transferToNexusTrigger,
     feeToken: toFeeToken({
@@ -149,14 +150,14 @@ const main = async () => {
   );
 
   /* ----------------------------- execute tx ----------------------------- */
-  ({ ok } = startStep('executing tx'));
+  ({ ok, fail } = startStep('executing tx'));
   const { hash } = await meeClient.executeFusionQuote({
     fusionQuote: quote,
   });
   ok(`hash: ${hash}`);
 
   /* ----------------------------- wait for confirmation ----------------------------- */
-  ({ ok } = startStep('waiting for confirmation'));
+  ({ ok, fail } = startStep('waiting for confirmation'));
   const receipt = await meeClient.waitForSupertransactionReceipt({ hash });
   ok(`status [${receipt.transactionStatus}]`);
 
@@ -180,4 +181,8 @@ const main = async () => {
   );
 };
 
-main();
+main().catch(err => {
+  fail();
+  console.error(err);
+  process.exit(1);
+});

@@ -16,6 +16,13 @@ services:
           # - ./.logs:/usr/src/app/logs
           # - ./.keystore:/usr/src/app/keystore
           - ./chains:/usr/src/app/chains
+        healthcheck:
+          # TODO: not the perfect health check
+          test: ["CMD", "sh", "-c", "wget -qO- http://localhost:3000/v3/info | grep '\"chainId\":\"8453\".*\"status\":\"healthy\"'"]
+          interval: 1s
+          timeout: 10s
+          retries: 999
+          start_period: 5s
     redis:
         image: redis:alpine
         restart: always

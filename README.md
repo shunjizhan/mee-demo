@@ -9,9 +9,9 @@ In this demo, we'll demonstrate this revolutionary capability by minting AUSDC f
 ### Spinning up a local development network
 First, please make sure you have installed foundry and anvil. ([how?](https://book.getfoundry.sh/getting-started/installation))
 
-Then let's fork the Base mainnet as our local development network. It's recommended to use an RPC with an API key to avoid rate limiting.
+Then let's fork the Base mainnet as our local development network. The RPC should support `debug_traceCall`. It's recommended to use an RPC with an API key to avoid rate limiting.
 ```
-anvil --fork-url https://base-mainnet.g.alchemy.com/v2
+anvil --fork-url https://base-mainnet.g.alchemy.com/v2/<api_key>
 ```
 
 We will see a list of anvil prefunded accounts, and we'll use the first one as our MEE account that will initiate the supertransaction. More details are provided in the [Starting the MEE node](#starting-the-mee-node) section.
@@ -22,9 +22,18 @@ Go to [etherscan](https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54b
 Save the addresses into environment variables. In this example, we'll select the Kucoin wallet as our lucky user:
 ```
 export MY_EOA=<your EOA address>
-export USDC=0x833589fcd6edb6e08f4c7c32d4f71b54bda02913
 export LUCKY_USER=0xD6216fC19DB775Df9774a6E33526131dA7D19a2c  # kucoin wallet
+export TRANSFER_AMOUNT=10000000000                            # we will transfer 10,000 USDC to our EOA (6 decimals)
 ```
+
+#### option 1: automated funding
+Fund the EOA account with USDC:
+```
+bun fund-eoa
+```
+
+#### option 2: manual funding
+If you are interested in what's happening behind the scenes, here are the manual steps:
 
 Check the balance of the lucky user to ensure there is plenty of USDC:
 ```
@@ -42,7 +51,7 @@ cast send $USDC                     \
   --unlocked                        \
   --from $LUCKY_USER                \
   "transfer(address,uint256)(bool)" \
-  $MY_EOA                               \
+  $MY_EOA                           \
   10000000000
 ```
 
@@ -66,16 +75,22 @@ Start our MEE node:
 docker compose up [-d]
 ```
 
-Let's make sure the node is healthy before we proceed:
+#### check the health of the node
+Although there is a built-in health check in the docker compose, let's double-check the node is healthy before we proceed:
 ```
 curl -s http://localhost:3000/v3/info | jq '.supportedChains'
 ```
 We should see `"status": "healthy"` for the Base chain. It's okay if Ethereum is not healthy with "native coin balance too low", since Ethereum is only used for price fetching—we won't actually send transactions on it.
 
+Also, we can directly check the health of the node:
+```
+docker inspect $(docker-compose ps -q node) --format='{{.State.Health.Status}}'
+```
+
 #### A few more details
 The chain configurations are in the [chains](./chains) folder. In this demo, the node will only support Base (where our transactions will be sent) and Ethereum (for price fetching).
 
-In the chain configuration file, we should put `http://host.docker.internal:8545` as the RPC URL for the Base chain, since we want transactions to occur on our local anvil fork.
+In the chain configuration file, we should put `http://host.docker.internal:8545` as the RPC URL for the Base chain, since we want transactions to occur on our local anvil fork. And for the Ethereum chain, it's recommended to use an RPC with an API key to avoid rate limiting.
 
 In the docker compose file, we did a couple of things:
   - set the private key of the MEE account with `KEY=0xac097....ff80`, so it can sign transactions. In this demo, we use the first anvil prefunded account.
@@ -92,6 +107,7 @@ KEY=<eoa_private_key>
 
 Then we can start the flow:
 ```
+bun install
 bun start
 ```
 

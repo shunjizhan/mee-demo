@@ -34,7 +34,8 @@ export const getTokenBalance = async <T extends boolean = true>(
 };
 
 // terminal UX util to better display the progress
-export const startStep = (msg: string, timeout = 3 * 60 * 1000) => {
+const MINUTES = 60 * 1000;
+export const startStep = (msg: string, timeout = 10 * MINUTES) => {
   const spinner = ora({
     text: msg,
     spinner: 'star',
@@ -52,7 +53,10 @@ export const startStep = (msg: string, timeout = 3 * 60 * 1000) => {
   };
 
   const update = (extraMsg: string) => spinner.text = `${msg} | ${extraMsg}`;
-  const fail = (msg?: string) => spinner.fail(msg);
+  const fail = () => {
+    clearTimeout(trigger);
+    spinner.fail();
+  };
 
   return {
     ok,

@@ -8,6 +8,7 @@
   "scripts": {
     "clean": "rm -rf .keystore .logs .redis-data",
     "lint": "eslint . --ext .js,.ts --fix",
+    "fund-eoa": "./scripts/fund-eoa.sh",
     "start": "bun src/start.ts"
   },
   "devDependencies": {
