@@ -1,7 +1,6 @@
 import {
   AavePoolAbi,
   createMeeClient,
-  mcAUSDC,
   mcAaveV3Pool,
   mcUSDC,
   runtimeERC20BalanceOf,
@@ -11,55 +10,71 @@ import {
 import {
   PublicClient,
   createPublicClient,
+  formatUnits,
   http,
   parseUnits,
 } from 'viem';
 import { base } from 'viem/chains';
-import { cleanEnv, str } from 'envalid';
-import { getTokenBalance } from './utils';
 import { privateKeyToAccount } from 'viem/accounts';
+import assert from 'assert';
 
-const { ALCHEMY_API_KEY, PRIVATE_KEY } = cleanEnv(process.env, {
-  ALCHEMY_API_KEY: str(),
-  PRIVATE_KEY: str(),
-});
-
-const USDC_ADDR = mcUSDC.addressOn(base.id);
-const AUSDC_ADDR = mcAUSDC.addressOn(base.id);
-const BASE_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+import { AUSDC_ADDR, BASE_RPC_URL, KEY, MEE_NOR_URL, USDC_ADDR } from './consts';
+import { getTokenBalance, promptForAmount, startStep } from './utils';
 
 const main = async () => {
-  console.log('setting up ...');
-  const eoa = privateKeyToAccount(`0x${PRIVATE_KEY}`);
+  /* ----------------------------- setup ----------------------------- */
+  let { ok } = startStep('setting up');
+
+  const eoa = privateKeyToAccount(`0x${KEY}`);
   const oNexus = await toMultichainNexusAccount({
     chains: [base],
     transports: [http(BASE_RPC_URL)],
     signer: eoa,
   });
+
   const client = createPublicClient({
     chain: base,
     transport: http(BASE_RPC_URL),
-  }) as PublicClient;
+  });
 
-  const meeClient = await createMeeClient({ account: oNexus });
+  const meeClient = await createMeeClient({
+    account: oNexus,
+    url: MEE_NOR_URL,
+  });
 
   const eoaAddr = eoa.address;
   const nexusAddr = oNexus.addressOn(base.id);
+  assert(nexusAddr, 'cannot get nexus address');
 
-  const [usdcBalBefore, ausdcBalBefore] = await Promise.all([
-    getTokenBalance(client, eoaAddr, USDC_ADDR),
-    getTokenBalance(client, eoaAddr, AUSDC_ADDR),
+  const [usdcBalBefore, ausdcBalBefore, nexusUsdcBal] = await Promise.all([
+    getTokenBalance(client as PublicClient, eoaAddr, USDC_ADDR),
+    getTokenBalance(client as PublicClient, eoaAddr, AUSDC_ADDR),
+    getTokenBalance(client as PublicClient, nexusAddr, USDC_ADDR),
   ]);
+
+  ok();
 
   console.log({
     eoaAddr,
     nexusAddr,
     usdcBalBefore,
     ausdcBalBefore,
+    nexusUsdcBal,
   });
 
-  console.log('building instructions ...');
-  const usdcTransferAmount = parseUnits('0.03', 6);
+  const USDC_RESERVE_FOR_FEE = 100;
+  const maxUsdcTransferAmount = usdcBalBefore - USDC_RESERVE_FOR_FEE;
+  const minUsdcTransferAmount = 1;
+
+  const amountInput = await promptForAmount(
+    `Enter amount of USDC to transfer (max: ${maxUsdcTransferAmount}, default: 1000)`,
+    minUsdcTransferAmount,
+    maxUsdcTransferAmount,
+  );
+  const usdcTransferAmount = parseUnits(amountInput.toString(), 6);
+
+  /* ----------------------------- build instructions ----------------------------- */
+  ({ ok } = startStep('building instructions'));
 
   // trigger tx is what the user will actually sign, which will kick off the entire orchestration sequence.
   const transferToNexusTrigger = {
@@ -107,7 +122,10 @@ const main = async () => {
     },
   });
 
-  console.log('fetching quote ...');
+  ok();
+
+  /* ----------------------------- fetch quote ----------------------------- */
+  ({ ok } = startStep('fetching quote'));
   const quote = await meeClient.getFusionQuote({
     trigger: transferToNexusTrigger,
     feeToken: toFeeToken({
@@ -122,20 +140,29 @@ const main = async () => {
   });
 
   const execFee = quote.quote.paymentInfo.tokenValue;
-  console.log(`execution fee: $${execFee}`);
+  ok(`execution fee: $${execFee}`);
 
-  console.log('executing tx ...');
+  const extraUsdcBal = usdcBalBefore - Number(formatUnits(usdcTransferAmount, 6));
+  assert(
+    extraUsdcBal > Number(execFee),
+    `eoa account does not have enough USDC balance to pay for the execution fee: ${extraUsdcBal} < ${execFee}`,
+  );
+
+  /* ----------------------------- execute tx ----------------------------- */
+  ({ ok } = startStep('executing tx'));
   const { hash } = await meeClient.executeFusionQuote({
     fusionQuote: quote,
   });
-  console.log(`tx submitted https://meescan.biconomy.io/details/${hash}`);
+  ok(`hash: ${hash}`);
 
+  /* ----------------------------- wait for confirmation ----------------------------- */
+  ({ ok } = startStep('waiting for confirmation'));
   const receipt = await meeClient.waitForSupertransactionReceipt({ hash });
-  console.log(`tx confirmed with status [${receipt.transactionStatus}]!`);
+  ok(`status [${receipt.transactionStatus}]`);
 
   const [usdcBalAfter, ausdcBalAfter] = await Promise.all([
-    getTokenBalance(client, eoaAddr, USDC_ADDR),
-    getTokenBalance(client, eoaAddr, AUSDC_ADDR),
+    getTokenBalance(client as PublicClient, eoaAddr, USDC_ADDR),
+    getTokenBalance(client as PublicClient, eoaAddr, AUSDC_ADDR),
   ]);
 
   const usdcDiff = usdcBalAfter - usdcBalBefore;
@@ -147,6 +174,10 @@ const main = async () => {
     usdcDiff,
     ausdcDiff,
   });
+
+  console.log(
+    `🎉🎉 successfully minted [${ausdcDiff}] AUSDC from AAVE with only *ONE* supertransaction, powered by Biconomy MEE stack!`,
+  );
 };
 
 main();

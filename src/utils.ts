@@ -1,4 +1,6 @@
 import { Address, PublicClient, erc20Abi, formatUnits } from 'viem';
+import inquirer from 'inquirer';
+import ora from 'ora';
 
 type TokenBalType<T extends boolean> = T extends true ? number : bigint;
 export const getTokenBalance = async <T extends boolean = true>(
@@ -31,3 +33,49 @@ export const getTokenBalance = async <T extends boolean = true>(
   return balance as TokenBalType<T>;
 };
 
+// terminal UX util to better display the progress
+export const startStep = (msg: string, timeout = 3 * 60 * 1000) => {
+  const spinner = ora({
+    text: msg,
+    spinner: 'star',
+    color: 'yellow',
+  }).start();
+
+  const trigger = setTimeout(() => spinner.fail(`${msg} | timed out`), timeout);
+
+  const ok = (extraMsg?: string) => {
+    clearTimeout(trigger);
+
+    extraMsg
+      ? spinner.succeed(`${msg} ▶️ ${extraMsg}`)
+      : spinner.succeed();
+  };
+
+  const update = (extraMsg: string) => spinner.text = `${msg} | ${extraMsg}`;
+  const fail = (msg?: string) => spinner.fail(msg);
+
+  return {
+    ok,
+    update,
+    fail,
+  };
+};
+
+export const promptForAmount = async (
+  message = 'Enter amount:',
+  min = 0,
+  max = Infinity,
+): Promise<number> => {
+  const { amount } = await inquirer.prompt<{ amount: number }>([{
+    type: 'number',
+    name: 'amount',
+    message,
+    default: 1000,
+  }]);
+
+  if (amount < min || amount > max) {
+    throw new Error(`Amount must be between ${min} and ${max}`);
+  }
+
+  return amount;
+};
