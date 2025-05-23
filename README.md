@@ -140,3 +140,6 @@ If you need to run the MEE Nodes in production, please add all supported chains,
 - [Biconomy docs](https://docs.biconomy.io/about)
 - [Biconomy network light paper](https://blog.biconomy.io/biconomy-network-litepaper/)
 - [abstractjs SDK](https://github.com/bcnmy/abstractjs)
+
+## Notes
+I have put the procedure, questions, and challenges in the [notes.md](./notes.md) file, which also includes some of my thoughs and inspirations during the development.

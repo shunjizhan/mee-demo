@@ -10,7 +10,6 @@ import {
 import {
   PublicClient,
   createPublicClient,
-  formatUnits,
   http,
   parseUnits,
 } from 'viem';
@@ -47,10 +46,9 @@ const main = async () => {
   const nexusAddr = oNexus.addressOn(base.id);
   assert(nexusAddr, 'cannot get nexus address');
 
-  const [usdcBalBefore, ausdcBalBefore, nexusUsdcBal] = await Promise.all([
+  const [usdcBalBefore, ausdcBalBefore] = await Promise.all([
     getTokenBalance(client as PublicClient, eoaAddr, USDC_ADDR),
     getTokenBalance(client as PublicClient, eoaAddr, AUSDC_ADDR),
-    getTokenBalance(client as PublicClient, nexusAddr, USDC_ADDR),
   ]);
 
   ok();
@@ -60,7 +58,6 @@ const main = async () => {
     nexusAddr,
     usdcBalBefore,
     ausdcBalBefore,
-    nexusUsdcBal,
   });
 
   const USDC_RESERVE_FOR_FEE = 100;
@@ -143,7 +140,7 @@ const main = async () => {
   const execFee = quote.quote.paymentInfo.tokenValue;
   ok(`execution fee: $${execFee}`);
 
-  const extraUsdcBal = usdcBalBefore - Number(formatUnits(usdcTransferAmount, 6));
+  const extraUsdcBal = usdcBalBefore - amountInput;
   assert(
     extraUsdcBal > Number(execFee),
     `eoa account does not have enough USDC balance to pay for the execution fee: ${extraUsdcBal} < ${execFee}`,
