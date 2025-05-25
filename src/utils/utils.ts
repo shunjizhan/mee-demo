@@ -1,5 +1,4 @@
 import { Address, PublicClient, erc20Abi, formatUnits } from 'viem';
-import inquirer from 'inquirer';
 import ora from 'ora';
 
 type TokenBalType<T extends boolean> = T extends true ? number : bigint;
@@ -63,23 +62,4 @@ export const startStep = (msg: string, timeout = 10 * MINUTES) => {
     update,
     fail,
   };
-};
-
-export const promptForAmount = async (
-  message = 'Enter amount:',
-  min = 0,
-  max = Infinity,
-): Promise<number> => {
-  const { amount } = await inquirer.prompt<{ amount: number }>([{
-    type: 'number',
-    name: 'amount',
-    message,
-    default: 1000,
-  }]);
-
-  if (amount < min || amount > max) {
-    throw new Error(`Amount must be between ${min} and ${max}`);
-  }
-
-  return amount;
 };
