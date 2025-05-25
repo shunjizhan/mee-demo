@@ -78,7 +78,6 @@ echo "✅ Transfer transaction sent"
 # ======== Step 4: Verify the transfer ================ #
 echo ""
 echo "4️⃣  Verifying transfer completion..."
-sleep 3  # Wait for transaction to be mined
 
 EOA_BALANCE_RAW=$(cast call $USDC "balanceOf(address)(uint256)" $MY_EOA)
 EOA_BALANCE=$(echo $EOA_BALANCE_RAW | cut -d' ' -f1)  # Extract just the number part

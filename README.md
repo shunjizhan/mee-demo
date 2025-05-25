@@ -11,7 +11,10 @@ First, please make sure you have installed foundry and anvil. ([how?](https://bo
 
 Then let's fork the Base mainnet as our local development network. The RPC should support `debug_traceCall`. It's recommended to use an RPC with an API key to avoid rate limiting.
 ```
-anvil --fork-url https://base-mainnet.g.alchemy.com/v2/<api_key>
+anvil                                                           \
+  --fork-url https://base-mainnet.g.alchemy.com/v2/<api_key>    \
+  --no-rate-limit                                               \
+  --cache-path ./anvil-cache
 ```
 
 We will see a list of anvil prefunded accounts, and we'll use the first one as our MEE account that will initiate the supertransaction. More details are provided in the [Starting the MEE node](#starting-the-mee-node) section.
@@ -111,6 +114,13 @@ bun install
 bun start
 ```
 
+Select `local` as the execution environment when prompted.
+```
+? run the script on local Anvil fork or Base mainnet? (Use arrow keys)
+❯ local
+  mainnet
+```
+
 Several things will happen in the background:
 - build the `supertransaction` data using the abstractjs SDK
 - quote the execution fee from the MEE node
@@ -127,7 +137,9 @@ The `supertransaction` is composed of several transactions under the hood:
 ## Conclusion
 🎉 Congratulations! You have successfully executed a sequence of transactions with only **ONE** signature, powered by the Biconomy MEE stack!
 
-As a bonus step, you can try sending a supertransaction on mainnet, where there are more infrastructures available to analyze and visualize the transactions. For example, when sending similar transactions on Base mainnet, we can visualize the token flow on [etherscan](https://basescan.org/tx/0x4f2a21a33bd544934ab1dae870c0bbb43506363c479197244f0960cab7700fd3) or see transaction details on [MEE explorer](https://meescan.biconomy.io)!
+As a bonus step, you can try sending a supertransaction on Base mainnet, simply by selecting `mainnet` as the execution environment when prompted. Note that this requires real USDC in your EOA account.
+
+On the mainnet, there are more infrastructures available to analyze and visualize the transactions. For example, when sending similar transactions on Base mainnet, we can visualize the token flow on [etherscan](https://basescan.org/tx/0x4f2a21a33bd544934ab1dae870c0bbb43506363c479197244f0960cab7700fd3) or see transaction details on [MEE explorer](https://meescan.biconomy.io/details/0x78ff4fbb11f7ea3b84405cd973dc5c345cb24c6091c830aaf4b60e176069b381)!
 
 ![token-flow](./assets/token-flow.png)
 

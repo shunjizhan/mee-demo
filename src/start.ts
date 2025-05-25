@@ -17,59 +17,82 @@ import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import assert from 'assert';
 
-import { AUSDC_ADDR, BASE_RPC_URL, KEY, MEE_NOR_URL, USDC_ADDR } from './consts';
-import { getTokenBalance, promptForAmount, startStep } from './utils';
+import {
+  AUSDC_ADDR,
+  EthRpc,
+  KEY,
+  MeeNode,
+  USDC_ADDR,
+  USDC_DECIMALS,
+  getTokenBalance,
+  promptForAmount,
+  promptOneOf,
+  startStep,
+} from './utils';
 
 let ok, fail;
 const main = async () => {
+  const network = await promptOneOf(
+    ['local', 'mainnet'],
+    'run the script on local Anvil fork or Base mainnet?',
+  );
+
+  const isMainnet = network === 'mainnet';
+  const [BaseRpcUrl, MeeNodeUrl] = isMainnet
+    ? [EthRpc.BASE, MeeNode.PROD]
+    : [EthRpc.LOCAL, MeeNode.LOCAL];
+
   /* ----------------------------- setup ----------------------------- */
   ({ ok, fail } = startStep('setting up'));
 
   const eoa = privateKeyToAccount(`0x${KEY}`);
   const oNexus = await toMultichainNexusAccount({
     chains: [base],
-    transports: [http(BASE_RPC_URL)],
+    transports: [http(BaseRpcUrl)],
     signer: eoa,
   });
 
   const client = createPublicClient({
     chain: base,
-    transport: http(BASE_RPC_URL),
+    transport: http(BaseRpcUrl),
   });
 
   const meeClient = await createMeeClient({
     account: oNexus,
-    url: MEE_NOR_URL,
+    url: MeeNodeUrl,
   });
 
   const eoaAddr = eoa.address;
   const nexusAddr = oNexus.addressOn(base.id);
   assert(nexusAddr, 'cannot get nexus address');
 
-  const [usdcBalBefore, ausdcBalBefore] = await Promise.all([
+  const [usdcBalBefore, ausdcBalBefore, isNexusDeployed] = await Promise.all([
     getTokenBalance(client as PublicClient, eoaAddr, USDC_ADDR),
     getTokenBalance(client as PublicClient, eoaAddr, AUSDC_ADDR),
+    client.getCode({ address: nexusAddr }).then(code => code !== undefined),
   ]);
 
   ok();
 
   console.log({
     eoaAddr,
-    nexusAddr,
+    nexusAddr: `${nexusAddr} (deployed: ${isNexusDeployed})`,
     usdcBalBefore,
     ausdcBalBefore,
   });
 
-  const USDC_RESERVE_FOR_FEE = 100;
-  const maxUsdcTransferAmount = usdcBalBefore - USDC_RESERVE_FOR_FEE;
-  const minUsdcTransferAmount = 1;
+  const USDC_RESERVE_FOR_FEE = isMainnet ? 0.1 : 100;
+  const minAmount = isMainnet ? 0.001 : 1;
+  const defaultAmount = isMainnet ? 0.03 : 1000;
+  const maxAmount = usdcBalBefore - USDC_RESERVE_FOR_FEE;
 
   const amountInput = await promptForAmount(
-    `Enter amount of USDC to transfer (max: ${maxUsdcTransferAmount}, default: 1000)`,
-    minUsdcTransferAmount,
-    maxUsdcTransferAmount,
+    `Enter amount of USDC to transfer (max: ${maxAmount}, default: ${defaultAmount})`,
+    minAmount,
+    maxAmount,
+    defaultAmount,
   );
-  const usdcTransferAmount = parseUnits(amountInput.toString(), 6);
+  const usdcTransferAmount = parseUnits(amountInput.toString(), USDC_DECIMALS);
 
   /* ----------------------------- build instructions ----------------------------- */
   ({ ok, fail } = startStep('building instructions'));
@@ -124,6 +147,10 @@ const main = async () => {
 
   /* ----------------------------- fetch quote ----------------------------- */
   ({ ok, fail } = startStep('fetching quote'));
+  const { timestamp: curTimestamp } = await client.getBlock({
+    blockNumber: await client.getBlockNumber(),
+  });
+
   const quote = await meeClient.getFusionQuote({
     trigger: transferToNexusTrigger,
     feeToken: toFeeToken({
@@ -135,6 +162,8 @@ const main = async () => {
       supplyUSDCToAAVE,
       transferAusdcToEoa,
     ],
+    lowerBoundTimestamp: Number(curTimestamp),
+    upperBoundTimestamp: Number(curTimestamp) + 120,
   });
 
   const execFee = quote.quote.paymentInfo.tokenValue;
@@ -146,12 +175,27 @@ const main = async () => {
     `eoa account does not have enough USDC balance to pay for the execution fee: ${extraUsdcBal} < ${execFee}`,
   );
 
+  if (isMainnet) {
+    const proceedInput = await promptOneOf(
+      ['yes', 'no'],
+      `do you want to proceed with the transaction? (fee: $${execFee})`,
+    );
+    if (proceedInput === 'no') {
+      console.log('user terminated the transaction, bye!');
+      return;
+    }
+  }
+
   /* ----------------------------- execute tx ----------------------------- */
   ({ ok, fail } = startStep('executing tx'));
   const { hash } = await meeClient.executeFusionQuote({
     fusionQuote: quote,
   });
-  ok(`hash: ${hash}`);
+
+  const msg = isMainnet
+    ? `https://meescan.biconomy.io/details/${hash}`
+    : `hash: ${hash}`;
+  ok(msg);
 
   /* ----------------------------- wait for confirmation ----------------------------- */
   ({ ok, fail } = startStep('waiting for confirmation'));

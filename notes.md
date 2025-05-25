@@ -1,7 +1,7 @@
 # Notes
 Some notes of my development process, thoughts, and questions.
 
-## Process
+## 💻 Process
 I broke this down into three steps:
 
 ### Step 1: write the script on Base mainnet
@@ -23,20 +23,20 @@ Thanks to this architectural similarity, I was able to set up the local testnet 
 ### Step 3: write documentation
 After everything worked locally, I wrote detailed instructions on how to reproduce the flow. I also double-checked that the docs were solid by cloning a fresh repo and following the instructions, and everything worked as expected.
 
-## Challenges
-### Challenge 1: understand the flow and concepts
+## 🚀 Challenges
+### Challenge 1: understand the flow and concepts (difficulty: ⭐)
 First, I needed to get to know all the Biconomy concepts, such as nexus, mee, and supertransaction.
 
 #### solution
 This one is not too tricky, I just needed to take some time and read through the docs, as well as the introduction articles. Thanks to the detailed documentation, I was able to pick up the concepts quickly. Also, with the help of modern AI tools, I can even get a deeper understanding by asking questions.
 
-### Challenge 2: setup local mee node
+### Challenge 2: setup local mee node (difficulty: ⭐)
 When starting the MEE node, I got errors: didn't support `trace_rpc`, and rate limited.
 
 #### solution
 This one is also straightforward, just go to Alchemy, add a credit card, and initialize a new project with `trace` plugin enabled.
 
-### Challenge 3: failed to create meeClient
+### Challenge 3: failed to create meeClient (difficulty: ⭐⭐)
 When implementing the flow script, I got an error when creating `createMeeClient` saying `cannot read property 'supportedChains' of undefined`.
 
 #### solution
@@ -46,7 +46,7 @@ I found that the MEE node was returning a different response format than expecte
 
 This one was a little tricky because instead of throwing a `no response` error for the wrong URL, the RPC server returned a different response format that meeClient couldn't parse (probably a v1 response?). Since the error message was not obvious, I had to run a debugger into the script and step it line by line to find the root cause.
 
-### Challenge 4: gas payment tx reverted
+### Challenge 4: gas payment tx reverted (difficulty: ⭐⭐)
 When executing the flow script, I got error saying `gas payment tx reverted`.
 
 #### solution
@@ -56,17 +56,36 @@ I upgraded to the latest anvil version, started the fork again with `-v` and `--
 
 So it was basically an anvil "bug" on my end. I think the root cause was that the outdated anvil didn't support some features that MEE relies on, possibly something from `Pectra`?
 
-## Questions
+### Challenge 5: failed to deploy smart account (difficulty: ⭐⭐⭐)
+After adding support for running on mainnet, I attempted to run the script locally again to ensure the new code didn't break the existing local flow. However, I started encountering the error `AA13 initCode failed or OOG`.
+
+This error is documented in the Biconomy docs and is likely due to insufficient `verificationGasLimit` being provided.
+
+However, this parameter is set by the node, and according to my understanding, it should normally be handled by the node itself (similar to how when sending EVM transactions we don't need to manually specify `gasLimit`, which is handled internally by tools via `eth_estimateGas`). I couldn't find a way to override `verificationGasLimit` for the supertransaction either.
+
+The strange part was that it had worked before for the exact same account, but not anymore. I double-checked that nothing had happened to that account on mainnet between "before" and "now", so there was no state change at all.
+
+#### solution
+Initially, I suspected it could be a cache issue (which happens frequently in local environments). However, after cleaning all caches, the issue persisted.
+
+I then tried using a brand new address by randomly generating a new private key, and the entire flow worked perfectly for this new account!
+
+This suggested that something specific was affecting the account `0x75E480dB528101a381Ce68544611C169Ad7EB342`, though I'm not entirely certain what caused this behavior.
+
+I wanted to verify if it had worked before by forking at a historical block, but encountered the error `AA22 Expired or not due` instead. (This relates to my second question in [about the setup](#about-the-setup))
+
+## 🙋 Questions
 ### about the flow
 - How do async supertransactions work? For example, with a bridge, what happens if a middle transaction reverts? TON contracts have a built-in `bounce` mechanism, but we still need complex bounce handling logic.
 - Fee collection is a separate transaction—why don't we make that part of the supertransaction?
 - Why is the MEE execution fee 10 USDC locally, but only ~0.02 USDC on mainnet?
-- Does this fusion transaction mainly use EIP-4337 style transactions, and is EIP-7702 involved at all?
+- Currently, the fusion transaction mainly uses EIP-4337 style transactions. What will be the role of EIP-7702, EIP-77*, and other upcoming EIPs in the future? Will they create new flows or improve the current flow?
 
 ### about the setup
 - How do we usually test multichain orchestration locally? Based on my experience, this can be quite tricky:
   - We "unit" test the flow after assets arrive at the router by manually sending tokens directly to the router (i.e., it doesn't matter where the asset comes from, as long as it reaches the router contract)
   - For e2e tests, we have to set up long-running testnets, which are time-consuming and hard to maintain
+- How do we test locally for historical blocks? I tried forking at a specific block, but the transaction failed with error `AA22 Expired or not due`. It seems the node wasn't building the transaction data correctly?
 
 ### about the infra
 - Are there any places to see transaction history associated with a nexus/EOA account?
@@ -77,8 +96,25 @@ So it was basically an anvil "bug" on my end. I think the root cause was that th
 - For forking, should we put `"isTestChain": true` in the chain config? What are the differences?
 - Why is `oNexus.buildComposable` a async function? Isn't it suppose to be some sort of pure function-for the same input, always return the same tx data?
 - When I run the debugger into abstractjs source code, Cursor throws an error saying "source file not found." I had to fall back to the compiled code—is there a way to debug the source code directly?
+- Why did I get `gas payment tx reverted` error in the old version of anvil?
+- How do I quote using ETH as payment with abstract.js? It seems the feeToken parameter is required.
+- For runtime parameter injection, are there any security concerns? This part seems to be the most vulnerable part of the entire flow.
+- Why do we need `@rhinestone/module-sdk`?
+- Why do we default to using `https://network.biconomy.io/v1`, the pathfinder URL for MEE client? Is MEE client just a pathfinder?
 
-## Thoughts
+### about the functionalities
+- How does recurring payment work?
+- Now that MEE supports paying gas with ERC20 tokens, that's great—how about gas sponsoring? Do we support scenarios where the app pays for the user?
+- Do we support branching? For example, swapping 100 USDC to 100 USDT, but if it reverts, swap to DAI instead?
+- Do we support output-based composition? For example, if the user's intent is to get 100 USDC, and they have 50 DAI and 60 USDT across multiple chains, can they swap these USDT and DAI to obtain 100 USDC with one supertransaction?
+
+### about the roadmap
+- It seems that the MEE stack already works well in a full production environment—this is amazing. What are the next steps? What else do we plan to enhance?
+- What are some apps that are already using this MEE stack in production? (I'm eager to test them out!)
+- Do we plan to support other non-EVM chains? (this might be tricky since 4337 and 7702 are Ethereum stuff)
+- Who are the competitors, and what are our advantages?
+
+## 💡 Thoughts
 ### about EIP-4337
 It seems that EIP-4337 Account Abstraction has interesting similarities to TON's contract model—both support "lazy deployment" where contracts can be deployed on-demand when first needed, with initialization code included in the transaction that creates them.
 

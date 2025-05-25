@@ -9,6 +9,7 @@
     "clean": "rm -rf .keystore .logs .redis-data",
     "lint": "eslint . --ext .js,.ts --fix",
     "fund-eoa": "./scripts/fund-eoa.sh",
+    "rand-account": " bun scripts/rand-account.ts",
     "start": "bun src/start.ts"
   },
   "devDependencies": {
