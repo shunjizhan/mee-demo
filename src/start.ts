@@ -12,7 +12,6 @@ import {
   createPublicClient,
   http,
   parseUnits,
-  stringify,
 } from 'viem';
 import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
