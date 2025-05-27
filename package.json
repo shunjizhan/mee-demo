@@ -10,7 +10,8 @@
     "lint": "eslint . --ext .js,.ts --fix",
     "fund-eoa": "./scripts/fund-eoa.sh",
     "rand-account": " bun scripts/rand-account.ts",
-    "start": "bun src/start.ts"
+    "start": "bun src/start.ts",
+    "cross-chain": "bun src/cross-chain-flow.ts"
   },
   "devDependencies": {
     "@biconomy/abstractjs": "^1.0.13",

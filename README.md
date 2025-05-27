@@ -125,11 +125,13 @@ Several things will happen in the background:
 - build the `supertransaction` data using the abstractjs SDK
 - quote the execution fee from the MEE node
 - sign the `supertransaction` using our EOA account key
-- the MEE account will collect the fee (as quoted) and initiate the `supertransaction`
+- the MEE account will collect the fee (as quoted) and initiate the `supertransaction` via ERC20Permit
 - wait for the `supertransaction` to be confirmed, and AUSDC will magically arrive in our EOA account!
 
 The `supertransaction` is composed of several transactions under the hood:
-- transfer USDC from EOA to the nexus account
+- transfer USDC from EOA to the nexus account via:
+  - ERC20Permit if supported
+  - a separate ERC20 transfer
 - approve AAVE to spend USDC from the nexus account
 - nexus account supplies USDC to AAVE and receives AUSDC
 - transfer AUSDC from nexus to EOA

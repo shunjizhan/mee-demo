@@ -80,33 +80,38 @@ I wanted to verify if it had worked before by forking at a historical block, but
 - Fee collection is a separate transaction—why don't we make that part of the supertransaction?
 - Why is the MEE execution fee 10 USDC locally, but only ~0.02 USDC on mainnet?
 - Currently, the fusion transaction mainly uses EIP-4337 style transactions. What will be the role of EIP-7702, EIP-77*, and other upcoming EIPs in the future? Will they create new flows or improve the current flow?
+- Do we have api to track the exact status of the supertransaction? Layer0 and Jumper etc have this very detailed status tracking via api.
+- Differences between Nexus/Smart/Companion accounts? These terms seem be to inter-used a lot.
+- Does multichain orchestration fully works for production? I tried one but it got stuck forever ([tx](https://meescan.biconomy.io/details/0xa740e87bf1c5edc3611f32341880fd240ade43c7e70e4978384d61c5a7f59f7f)).
+- Does runtime balance injection works for bridges? (in the docs: not for api calls at least)
 
 ### about the setup
 - How do we usually test multichain orchestration locally? Based on my experience, this can be quite tricky:
   - We "unit" test the flow after assets arrive at the router by manually sending tokens directly to the router (i.e., it doesn't matter where the asset comes from, as long as it reaches the router contract)
   - For e2e tests, we have to set up long-running testnets, which are time-consuming and hard to maintain
 - How do we test locally for historical blocks? I tried forking at a specific block, but the transaction failed with error `AA22 Expired or not due`. It seems the node wasn't building the transaction data correctly?
+- How to test smart session locally?
 
 ### about the infra
 - Are there any places to see transaction history associated with a nexus/EOA account?
   - The explorer looks quite basic—are we planning to add more features? For example, the LayerZero explorer can search by actual on-chain transaction hash and return the complete orchestration result.
-- Do we have a healthcheck endpoint for MEE node?
+- It seems that Mee explorer sometimes show error even for a successful supertransaction ([example](https://meescan.biconomy.io/details/0xcf6f416391a3a6daa2b7dcc763a71e8cadbf3f29be275e3580f5b0fe825593e6)). This one is also a odd one, it has an extra token flow.
 
 ### about the codes
 - For forking, should we put `"isTestChain": true` in the chain config? What are the differences?
-- Why is `oNexus.buildComposable` a async function? Isn't it suppose to be some sort of pure function-for the same input, always return the same tx data?
 - When I run the debugger into abstractjs source code, Cursor throws an error saying "source file not found." I had to fall back to the compiled code—is there a way to debug the source code directly?
 - Why did I get `gas payment tx reverted` error in the old version of anvil?
-- How do I quote using ETH as payment with abstract.js? It seems the feeToken parameter is required.
 - For runtime parameter injection, are there any security concerns? This part seems to be the most vulnerable part of the entire flow.
 - Why do we need `@rhinestone/module-sdk`?
 - Why do we default to using `https://network.biconomy.io/v1`, the pathfinder URL for MEE client? Is MEE client just a pathfinder?
+- How do I quote using ETH as payment with abstract.js? It seems the feeToken parameter is required. (in the doc: use `0x00` addr)
+- Why is `oNexus.buildComposable` a async function? Isn't it suppose to be some sort of pure function-for the same input, always return the same tx data? (determine if we need init data?)
 
 ### about the functionalities
-- How does recurring payment work?
-- Now that MEE supports paying gas with ERC20 tokens, that's great—how about gas sponsoring? Do we support scenarios where the app pays for the user?
 - Do we support branching? For example, swapping 100 USDC to 100 USDT, but if it reverts, swap to DAI instead?
 - Do we support output-based composition? For example, if the user's intent is to get 100 USDC, and they have 50 DAI and 60 USDT across multiple chains, can they swap these USDT and DAI to obtain 100 USDC with one supertransaction?
+- Now that MEE supports paying gas with ERC20 tokens, that's great—how about gas sponsoring? Do we support scenarios where the app pays for the user? (in the doc: yes, and details are TBA)
+- How does recurring payment work? (specify future timestamp)
 
 ### about the roadmap
 - It seems that the MEE stack already works well in a full production environment—this is amazing. What are the next steps? What else do we plan to enhance?

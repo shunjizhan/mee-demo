@@ -12,6 +12,7 @@ import {
   createPublicClient,
   http,
   parseUnits,
+  stringify,
 } from 'viem';
 import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -69,14 +70,14 @@ const main = async () => {
   const [usdcBalBefore, ausdcBalBefore, isNexusDeployed] = await Promise.all([
     getTokenBalance(client as PublicClient, eoaAddr, USDC_ADDR),
     getTokenBalance(client as PublicClient, eoaAddr, AUSDC_ADDR),
-    client.getCode({ address: nexusAddr }).then(code => code !== undefined),
+    oNexus.deploymentOn(base.id)?.isDeployed(),
   ]);
 
   ok();
 
   console.log({
     eoaAddr,
-    nexusAddr: `${nexusAddr} (deployed: ${isNexusDeployed})`,
+    nexusAddr: `${nexusAddr} (deployed: ${!!isNexusDeployed})`,
     usdcBalBefore,
     ausdcBalBefore,
   });
@@ -124,7 +125,7 @@ const main = async () => {
       args: [
         USDC_ADDR,
         usdcTransferAmount,
-        oNexus.addressOn(base.id, true),
+        nexusAddr,
         0,
       ],
     },
@@ -136,7 +137,7 @@ const main = async () => {
       chainId: base.id,
       tokenAddress: AUSDC_ADDR,
       amount: runtimeERC20BalanceOf({
-        targetAddress: oNexus.addressOn(base.id, true),
+        targetAddress: nexusAddr,
         tokenAddress: AUSDC_ADDR,
       }),
       recipient: eoaAddr,
@@ -169,6 +170,8 @@ const main = async () => {
   const execFee = quote.quote.paymentInfo.tokenValue;
   ok(`execution fee: $${execFee}`);
 
+  console.log(stringify(quote.quote, null, 2));
+
   const extraUsdcBal = usdcBalBefore - amountInput;
   assert(
     extraUsdcBal > Number(execFee),
@@ -178,7 +181,7 @@ const main = async () => {
   if (isMainnet) {
     const proceedInput = await promptOneOf(
       ['yes', 'no'],
-      `do you want to proceed with the transaction? (fee: $${execFee})`,
+      `proceed with the transaction? (fee: $${execFee})`,
     );
     if (proceedInput === 'no') {
       console.log('user terminated the transaction, bye!');
